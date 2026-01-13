@@ -1,0 +1,40 @@
+---
+# BIND9 + REST API Automated Deployment
+# Usage: ansible-playbook -i inventories/production/hosts.yml site.yml
+
+- name: Deploy BIND9 DNS Server with REST API
+  hosts: dns_servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Validate target OS
+      ansible.builtin.assert:
+        that:
+          - ansible_os_family == "Debian"
+          - ansible_distribution_version is version('22.04', '>=')
+        fail_msg: "This playbook requires Ubuntu 22.04 or later"
+        success_msg: "OS validation passed: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+
+  roles:
+    - bind9_api
+
+  post_tasks:
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg: |
+          
+          ╔══════════════════════════════════════════════════════════════════╗
+          ║              BIND9 + REST API Deployment Complete                ║
+          ╠══════════════════════════════════════════════════════════════════╣
+          ║                                                                  ║
+          ║  API Endpoint: http://{{ ansible_host }}:{{ bind9_api_port }}    ║
+          ║  API Key:      {{ bind9_api_key }}                               ║
+          ║                                                                  ║
+          ║  BIND9 Status: systemctl status named                            ║
+          ║  API Status:   systemctl status bind9-api                        ║
+          ║                                                                  ║
+          ║  Test: curl -H "X-API-Key: {{ bind9_api_key }}" \                ║
+          ║        http://{{ ansible_host }}:{{ bind9_api_port }}/health     ║
+          ║                                                                  ║
+          ╚══════════════════════════════════════════════════════════════════╝

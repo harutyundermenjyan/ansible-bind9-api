@@ -1,0 +1,90 @@
+---
+# ============================================================================
+# BIND9 + REST API Role Defaults
+# ============================================================================
+# Override these variables in your inventory or group_vars
+
+# ----------------------------------------------------------------------------
+# API Configuration
+# ----------------------------------------------------------------------------
+bind9_api_port: 8080
+bind9_api_host: "0.0.0.0"
+bind9_api_log_level: "INFO"
+bind9_api_workers: 4
+
+# API Key - auto-generated if not set (recommended)
+# bind9_api_key: ""
+
+# API Installation
+bind9_api_repo: "https://github.com/harutyundermenjyan/bind9-api.git"
+bind9_api_version: "main"
+bind9_api_install_dir: "/opt/bind9-api"
+
+# API User (runs as bind user for zone file access)
+bind9_api_user: "bind"
+bind9_api_group: "bind"
+
+# ----------------------------------------------------------------------------
+# BIND9 Configuration
+# ----------------------------------------------------------------------------
+bind9_user: "bind"
+bind9_group: "bind"
+
+# Directories
+bind9_config_dir: "/etc/bind"
+bind9_zones_dir: "/var/lib/bind"
+bind9_cache_dir: "/var/cache/bind"
+bind9_log_dir: "/var/log/bind"
+bind9_keys_dir: "/etc/bind/keys"
+
+# Enable dynamic zone management (required for API)
+bind9_allow_new_zones: true
+
+# Statistics channel (required for API health checks)
+bind9_stats_port: 8053
+bind9_stats_allow:
+  - "127.0.0.1"
+
+# RNDC configuration
+bind9_rndc_port: 953
+bind9_rndc_allow:
+  - "127.0.0.1"
+
+# ----------------------------------------------------------------------------
+# Default ACLs - EMPTY by default, managed by Terraform
+# ----------------------------------------------------------------------------
+# ACLs are managed via the BIND9 REST API and Terraform provider.
+# Do not define ACLs here - use Terraform's bind9_acl resource instead.
+bind9_default_acls: {}
+
+# ----------------------------------------------------------------------------
+# Global Options
+# ----------------------------------------------------------------------------
+bind9_options:
+  allow_query:
+    - "any"
+  allow_recursion:
+    - "localhost"
+    - "localnets"
+  dnssec_validation: "auto"
+  listen_on:
+    - "any"
+  listen_on_v6:
+    - "any"
+
+# ----------------------------------------------------------------------------
+# Logging
+# ----------------------------------------------------------------------------
+bind9_logging_enabled: true
+bind9_log_severity: "info"
+bind9_log_versions: 3
+bind9_log_size: "5m"
+
+# ----------------------------------------------------------------------------
+# Security
+# ----------------------------------------------------------------------------
+# TSIG key algorithm for dynamic updates
+bind9_tsig_algorithm: "hmac-sha256"
+
+# AppArmor configuration (Ubuntu)
+bind9_configure_apparmor: true

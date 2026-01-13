@@ -1,0 +1,142 @@
+---
+# ============================================================================
+# BIND9 Installation and Configuration Tasks
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Installation
+# ----------------------------------------------------------------------------
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install BIND9 packages
+  ansible.builtin.apt:
+    name:
+      - bind9
+      - bind9-utils
+      - bind9-dnsutils
+      - dnsutils
+    state: present
+
+# ----------------------------------------------------------------------------
+# Directory Setup
+# ----------------------------------------------------------------------------
+- name: Create required directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner | default(bind9_user) }}"
+    group: "{{ item.group | default(bind9_group) }}"
+    mode: "{{ item.mode | default('0755') }}"
+  loop:
+    - { path: "{{ bind9_zones_dir }}", mode: "0775" }
+    - { path: "{{ bind9_cache_dir }}", mode: "0755" }
+    - { path: "{{ bind9_log_dir }}", mode: "0755", owner: "{{ bind9_user }}", group: "{{ bind9_group }}" }
+    - { path: "{{ bind9_keys_dir }}", mode: "0750" }
+    - { path: "{{ bind9_config_dir }}", mode: "0775" }
+
+# Ensure log directory is writable by bind user
+- name: Set log directory ownership
+  ansible.builtin.file:
+    path: "{{ bind9_log_dir }}"
+    state: directory
+    owner: "{{ bind9_user }}"
+    group: "{{ bind9_group }}"
+    mode: "0755"
+    recurse: true
+
+# ----------------------------------------------------------------------------
+# Key Generation (after BIND9 packages installed)
+# ----------------------------------------------------------------------------
+- name: Generate BIND9 keys
+  ansible.builtin.include_tasks: keys.yml
+
+# ----------------------------------------------------------------------------
+# Configuration Files
+# ----------------------------------------------------------------------------
+- name: Deploy named.conf
+  ansible.builtin.template:
+    src: named.conf.j2
+    dest: "{{ bind9_config_dir }}/named.conf"
+    owner: root
+    group: "{{ bind9_group }}"
+    mode: "0644"
+  notify: Restart named
+
+- name: Deploy named.conf.options
+  ansible.builtin.template:
+    src: named.conf.options.j2
+    dest: "{{ bind9_config_dir }}/named.conf.options"
+    owner: root
+    group: "{{ bind9_group }}"
+    mode: "0644"
+  notify: Restart named
+
+- name: Deploy named.conf.local
+  ansible.builtin.template:
+    src: named.conf.local.j2
+    dest: "{{ bind9_config_dir }}/named.conf.local"
+    owner: root
+    group: "{{ bind9_group }}"
+    mode: "0644"
+  notify: Restart named
+
+- name: Deploy named.conf.acls (empty, managed by API)
+  ansible.builtin.template:
+    src: named.conf.acls.j2
+    dest: "{{ bind9_config_dir }}/named.conf.acls"
+    owner: "{{ bind9_user }}"
+    group: "{{ bind9_group }}"
+    mode: "0664"
+    force: true
+  notify: Reload named
+
+# ----------------------------------------------------------------------------
+# AppArmor Configuration (Ubuntu)
+# ----------------------------------------------------------------------------
+- name: Configure AppArmor for BIND9
+  when: bind9_configure_apparmor | default(true)
+  block:
+    - name: Check if AppArmor is enabled
+      ansible.builtin.stat:
+        path: /etc/apparmor.d/usr.sbin.named
+      register: apparmor_bind9
+
+    - name: Deploy AppArmor local configuration
+      when: apparmor_bind9.stat.exists
+      ansible.builtin.template:
+        src: apparmor.local.j2
+        dest: /etc/apparmor.d/local/usr.sbin.named
+        owner: root
+        group: root
+        mode: "0644"
+      register: apparmor_config
+
+    - name: Reload AppArmor profile immediately
+      when: apparmor_bind9.stat.exists and apparmor_config.changed
+      ansible.builtin.command: apparmor_parser -r /etc/apparmor.d/usr.sbin.named
+      changed_when: true
+
+# ----------------------------------------------------------------------------
+# Service Management
+# ----------------------------------------------------------------------------
+- name: Reset any failed state for named
+  ansible.builtin.command: systemctl reset-failed named
+  changed_when: false
+  failed_when: false
+
+- name: Enable and start BIND9
+  ansible.builtin.systemd:
+    name: named
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Wait for BIND9 to be ready
+  ansible.builtin.wait_for:
+    port: 53
+    host: 127.0.0.1
+    delay: 2
+    timeout: 30

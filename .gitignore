@@ -1,0 +1,30 @@
+# Ansible
+*.retry
+*.pyc
+__pycache__/
+
+# Credentials (generated locally)
+credentials/
+
+# Vault password files
+.vault_pass*
+vault_password*
+
+# Local overrides
+*.local.yml
+inventory.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Terraform state (if any)
+*.tfstate
+*.tfstate.*
+.terraform/

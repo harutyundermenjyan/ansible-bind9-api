@@ -1,0 +1,22 @@
+// =============================================================================
+// BIND9 Configuration - Managed by Ansible
+// Generated: {{ ansible_date_time.iso8601 }}
+// =============================================================================
+
+// Include RNDC key for remote control
+include "{{ bind9_config_dir }}/rndc.key";
+
+// Include DDNS/TSIG key for dynamic updates
+include "{{ bind9_keys_dir }}/ddns-key.key";
+
+// Include ACLs (managed by REST API)
+include "{{ bind9_config_dir }}/named.conf.acls";
+
+// Include global options
+include "{{ bind9_config_dir }}/named.conf.options";
+
+// Include local zone definitions
+include "{{ bind9_config_dir }}/named.conf.local";
+
+// Include default zones
+include "{{ bind9_config_dir }}/named.conf.default-zones";

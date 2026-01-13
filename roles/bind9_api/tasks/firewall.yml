@@ -1,0 +1,41 @@
+---
+# ============================================================================
+# Firewall Configuration Tasks
+# ============================================================================
+
+- name: Check if UFW is available
+  ansible.builtin.command: which ufw
+  register: ufw_check
+  changed_when: false
+  failed_when: false
+
+- name: Configure UFW firewall
+  when: ufw_check.rc == 0
+  block:
+    - name: Allow DNS (TCP)
+      community.general.ufw:
+        rule: allow
+        port: "53"
+        proto: tcp
+        comment: "BIND9 DNS TCP"
+
+    - name: Allow DNS (UDP)
+      community.general.ufw:
+        rule: allow
+        port: "53"
+        proto: udp
+        comment: "BIND9 DNS UDP"
+
+    - name: Allow API port
+      community.general.ufw:
+        rule: allow
+        port: "{{ bind9_api_port }}"
+        proto: tcp
+        comment: "BIND9 REST API"
+      when: bind9_api_allow_external | default(true)
+
+    - name: Ensure UFW is enabled
+      community.general.ufw:
+        state: enabled
+        policy: deny
+      when: bind9_ufw_enable | default(false)

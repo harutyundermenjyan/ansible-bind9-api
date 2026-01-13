@@ -1,0 +1,94 @@
+---
+# ============================================================================
+# BIND9 REST API Installation Tasks
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Dependencies
+# ----------------------------------------------------------------------------
+- name: Install Python and dependencies
+  ansible.builtin.apt:
+    name:
+      - python3
+      - python3-pip
+      - python3-venv
+      - git
+    state: present
+
+# ----------------------------------------------------------------------------
+# Clone/Update Repository
+# ----------------------------------------------------------------------------
+- name: Configure git safe.directory
+  ansible.builtin.command:
+    cmd: git config --global --add safe.directory {{ bind9_api_install_dir }}
+  changed_when: false
+  failed_when: false
+
+- name: Clone BIND9 REST API repository
+  ansible.builtin.git:
+    repo: "{{ bind9_api_repo }}"
+    dest: "{{ bind9_api_install_dir }}"
+    version: "{{ bind9_api_version }}"
+    force: true
+  notify: Restart bind9-api
+
+- name: Set API directory ownership
+  ansible.builtin.file:
+    path: "{{ bind9_api_install_dir }}"
+    owner: "{{ bind9_api_user }}"
+    group: "{{ bind9_api_group }}"
+    recurse: true
+
+# ----------------------------------------------------------------------------
+# Python Virtual Environment
+# ----------------------------------------------------------------------------
+- name: Create Python virtual environment
+  ansible.builtin.command:
+    cmd: python3 -m venv {{ bind9_api_install_dir }}/venv
+    creates: "{{ bind9_api_install_dir }}/venv/bin/python"
+
+- name: Install Python dependencies
+  ansible.builtin.pip:
+    requirements: "{{ bind9_api_install_dir }}/requirements.txt"
+    virtualenv: "{{ bind9_api_install_dir }}/venv"
+    state: present
+
+# ----------------------------------------------------------------------------
+# Environment Configuration
+# ----------------------------------------------------------------------------
+- name: Deploy API environment file
+  ansible.builtin.template:
+    src: bind9-api.env.j2
+    dest: "{{ bind9_api_install_dir }}/.env"
+    owner: "{{ bind9_api_user }}"
+    group: "{{ bind9_api_group }}"
+    mode: "0600"
+  notify: Restart bind9-api
+
+# ----------------------------------------------------------------------------
+# Systemd Service
+# ----------------------------------------------------------------------------
+- name: Deploy systemd service file
+  ansible.builtin.template:
+    src: bind9-api.service.j2
+    dest: /etc/systemd/system/bind9-api.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart bind9-api
+
+- name: Enable and start BIND9 REST API
+  ansible.builtin.systemd:
+    name: bind9-api
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Wait for API to be ready
+  ansible.builtin.wait_for:
+    port: "{{ bind9_api_port }}"
+    host: 127.0.0.1
+    delay: 3
+    timeout: 30

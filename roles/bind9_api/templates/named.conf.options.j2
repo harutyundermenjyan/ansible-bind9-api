@@ -1,0 +1,72 @@
+// =============================================================================
+// BIND9 Global Options - Managed by Ansible
+// Generated: {{ ansible_date_time.iso8601 }}
+// =============================================================================
+
+options {
+    directory "{{ bind9_cache_dir }}";
+
+    // Query settings
+{% if bind9_options.allow_query is defined %}
+    allow-query { {{ bind9_options.allow_query | join('; ') }}; };
+{% endif %}
+{% if bind9_options.allow_recursion is defined %}
+    allow-recursion { {{ bind9_options.allow_recursion | join('; ') }}; };
+{% endif %}
+
+    // DNSSEC
+    dnssec-validation {{ bind9_options.dnssec_validation | default('auto') }};
+
+    // Listening interfaces
+{% if bind9_options.listen_on is defined %}
+    listen-on { {{ bind9_options.listen_on | join('; ') }}; };
+{% endif %}
+{% if bind9_options.listen_on_v6 is defined %}
+    listen-on-v6 { {{ bind9_options.listen_on_v6 | join('; ') }}; };
+{% endif %}
+
+    // CRITICAL: Enable dynamic zone management via API
+    allow-new-zones {{ 'yes' if bind9_allow_new_zones else 'no' }};
+
+    // Disable version disclosure for security
+    version "not disclosed";
+};
+
+// =============================================================================
+// Statistics Channel - Required for API health checks
+// =============================================================================
+statistics-channels {
+    inet 127.0.0.1 port {{ bind9_stats_port }} allow { {{ bind9_stats_allow | join('; ') }}; };
+};
+
+// =============================================================================
+// RNDC Control - Required for zone management
+// =============================================================================
+controls {
+    inet 127.0.0.1 port {{ bind9_rndc_port }} allow { {{ bind9_rndc_allow | join('; ') }}; } keys { "rndc-key"; };
+};
+
+{% if bind9_logging_enabled %}
+// =============================================================================
+// Logging Configuration
+// =============================================================================
+logging {
+    channel default_log {
+        file "{{ bind9_log_dir }}/default.log" versions {{ bind9_log_versions }} size {{ bind9_log_size }};
+        severity {{ bind9_log_severity }};
+        print-time yes;
+        print-severity yes;
+        print-category yes;
+    };
+
+    channel query_log {
+        file "{{ bind9_log_dir }}/query.log" versions {{ bind9_log_versions }} size {{ bind9_log_size }};
+        severity {{ bind9_log_severity }};
+        print-time yes;
+    };
+
+    category default { default_log; };
+    category queries { query_log; };
+    category security { default_log; };
+};
+{% endif %}
