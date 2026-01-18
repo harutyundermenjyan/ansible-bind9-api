@@ -7,15 +7,16 @@ default:
   image: python:3.11-slim
   tags:
     - openbao
-  variables:
-    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
-    ANSIBLE_CONFIG: "$CI_PROJECT_DIR/ansible.cfg"
   cache:
     paths:
       - .cache/pip
   before_script:
     - python -m pip install --upgrade pip
     - pip install ansible ansible-lint
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  ANSIBLE_CONFIG: "$CI_PROJECT_DIR/ansible.cfg"
 
 lint:
   stage: lint
