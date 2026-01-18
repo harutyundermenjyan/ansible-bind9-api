@@ -7,9 +7,10 @@ default:
   tags:
     - openbao
   before_script:
-    - python3 -m pip install --user --upgrade pip
-    - python3 -m pip install --user ansible ansible-lint
-    - export PATH="$HOME/.local/bin:$PATH"
+    - python3 -m venv .venv
+    - . .venv/bin/activate
+    - python -m pip install --upgrade pip
+    - python -m pip install ansible ansible-lint
 
 variables:
   ANSIBLE_CONFIG: "$CI_PROJECT_DIR/ansible.cfg"
@@ -33,9 +34,10 @@ syntax_check:
 deploy:
   stage: deploy
   before_script:
-    - python3 -m pip install --user --upgrade pip
-    - python3 -m pip install --user ansible
-    - export PATH="$HOME/.local/bin:$PATH"
+    - python3 -m venv .venv
+    - . .venv/bin/activate
+    - python -m pip install --upgrade pip
+    - python -m pip install ansible
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
     - |
