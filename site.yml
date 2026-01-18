@@ -29,7 +29,7 @@
           ╠══════════════════════════════════════════════════════════════════╣
           ║                                                                  ║
           ║  API Endpoint: http://{{ ansible_host }}:{{ bind9_api_port }}    ║
-          ║  Credentials:  See credentials/{{ inventory_hostname }}.txt      ║
+          ║  Credentials:  /opt/bind9-api/.env (on server)                   ║
           ║                                                                  ║
           ║  BIND9 Status: systemctl status named                            ║
           ║  API Status:   systemctl status bind9-api                        ║
