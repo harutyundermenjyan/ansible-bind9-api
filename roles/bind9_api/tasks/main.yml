@@ -13,9 +13,31 @@
       skip: true
 
 # ----------------------------------------------------------------------------
-# Generate API Key First (locally)
+# Check for existing API Key on server
 # ----------------------------------------------------------------------------
-- name: Generate API key if not provided
+- name: Check if .env file exists on server
+  ansible.builtin.stat:
+    path: /opt/bind9-api/.env
+  register: env_file_stat
+
+- name: Read existing API key from server
+  when: env_file_stat.stat.exists
+  block:
+    - name: Get existing API key from .env
+      ansible.builtin.shell: grep '^BIND9_API_AUTH_STATIC_API_KEY=' /opt/bind9-api/.env | cut -d'=' -f2
+      register: existing_api_key
+      changed_when: false
+      failed_when: false
+
+    - name: Use existing API key
+      ansible.builtin.set_fact:
+        bind9_api_key: "{{ existing_api_key.stdout }}"
+      when: existing_api_key.stdout | length > 0
+
+# ----------------------------------------------------------------------------
+# Generate API Key if not exists
+# ----------------------------------------------------------------------------
+- name: Generate API key if not provided and not on server
   when: bind9_api_key is not defined or bind9_api_key == ""
   block:
     - name: Generate secure API key
@@ -28,10 +50,6 @@
     - name: Set API key fact
       ansible.builtin.set_fact:
         bind9_api_key: "{{ generated_api_key.stdout }}"
-
-- name: Display API key (save this!)
-  ansible.builtin.debug:
-    msg: "API Key: {{ bind9_api_key }}"
 
 # ----------------------------------------------------------------------------
 # BIND9 Installation and Configuration
