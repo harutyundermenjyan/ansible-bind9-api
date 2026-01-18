@@ -1,0 +1,61 @@
+stages:
+  - lint
+  - syntax
+  - deploy
+
+default:
+  image: python:3.11-slim
+  tags:
+    - openbao
+  variables:
+    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+    ANSIBLE_CONFIG: "$CI_PROJECT_DIR/ansible.cfg"
+  cache:
+    paths:
+      - .cache/pip
+  before_script:
+    - python -m pip install --upgrade pip
+    - pip install ansible ansible-lint
+
+lint:
+  stage: lint
+  script:
+    - ansible-lint site.yml
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+syntax_check:
+  stage: syntax
+  script:
+    - ansible-playbook -i inventories/production/hosts.yml site.yml --syntax-check
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+deploy:
+  stage: deploy
+  before_script:
+    - apt-get update && apt-get install -y --no-install-recommends openssh-client
+    - mkdir -p ~/.ssh
+    - |
+      if [ -n "$SSH_PRIVATE_KEY" ]; then
+        printf "%s" "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+      fi
+    - |
+      if [ -n "$SSH_KNOWN_HOSTS" ]; then
+        printf "%s" "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+        chmod 644 ~/.ssh/known_hosts
+      fi
+    - |
+      if [ -n "$INVENTORY_CONTENT" ]; then
+        printf "%s" "$INVENTORY_CONTENT" > ci-inventory.yml
+        export ANSIBLE_INVENTORY=ci-inventory.yml
+      fi
+  script:
+    - ansible-playbook -i "${ANSIBLE_INVENTORY:-inventories/production/hosts.yml}" site.yml
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+  allow_failure: false

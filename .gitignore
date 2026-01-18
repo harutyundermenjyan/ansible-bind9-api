@@ -1,0 +1,10 @@
+credentials/
+*.retry
+.ansible/
+.env
+.venv/
+*.pem
+*.key
+*.crt
+*.vault
+vault_pass.txt

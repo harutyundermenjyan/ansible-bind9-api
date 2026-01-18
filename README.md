@@ -140,6 +140,28 @@ provider "bind9" {
 }
 ```
 
+## GitLab CI (Manual Deploy)
+
+This repo includes a production-ready GitLab CI pipeline with a **manual** deploy job.
+
+### Required CI/CD variables
+
+Create these variables in **GitLab → Settings → CI/CD → Variables**:
+
+- `SSH_PRIVATE_KEY` (masked, protected)  
+  Private key with access to your DNS servers.
+- `SSH_KNOWN_HOSTS` (optional, masked)  
+  Output of `ssh-keyscan -H <server_ip>` for your hosts.
+
+The deploy job runs:
+
+```bash
+ansible-playbook -i inventories/production/hosts.yml site.yml
+```
+
+If your inventory is different for CI, set it in `inventories/production/hosts.yml`
+or override it with a project variable and pass it via `ANSIBLE_INVENTORY`.
+
 ## Security Notes
 
 1. **API Key** - Generated securely using `secrets.token_urlsafe(32)`
