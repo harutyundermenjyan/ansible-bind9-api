@@ -23,7 +23,7 @@
     - name: Display deployment summary
       ansible.builtin.debug:
         msg: |
-          
+
           ╔══════════════════════════════════════════════════════════════════╗
           ║              BIND9 + REST API Deployment Complete                ║
           ╠══════════════════════════════════════════════════════════════════╣
