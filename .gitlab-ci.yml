@@ -39,8 +39,8 @@ deploy:
     - apt-get update && apt-get install -y --no-install-recommends openssh-client
     - mkdir -p ~/.ssh
     - |
-      if [ -n "$SSH_PRIVATE_KEY" ]; then
-        printf "%s" "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+      if [ -n "$SSH_PRIVATE_KEY_B64" ]; then
+        printf "%s" "$SSH_PRIVATE_KEY_B64" | base64 -d > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
       fi
     - |
@@ -49,10 +49,6 @@ deploy:
         chmod 644 ~/.ssh/known_hosts
       fi
     - |
-      if [ -n "$INVENTORY_CONTENT" ]; then
-        printf "%s" "$INVENTORY_CONTENT" > ci-inventory.yml
-        export ANSIBLE_INVENTORY=ci-inventory.yml
-      fi
   script:
     - ansible-playbook -i "${ANSIBLE_INVENTORY:-inventories/production/hosts.yml}" site.yml
   rules:
