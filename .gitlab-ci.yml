@@ -4,18 +4,14 @@ stages:
   - deploy
 
 default:
-  image: python:3.11-slim
   tags:
     - openbao
-  cache:
-    paths:
-      - .cache/pip
   before_script:
-    - python -m pip install --upgrade pip
-    - pip install ansible ansible-lint
+    - python3 -m pip install --user --upgrade pip
+    - python3 -m pip install --user ansible ansible-lint
+    - export PATH="$HOME/.local/bin:$PATH"
 
 variables:
-  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   ANSIBLE_CONFIG: "$CI_PROJECT_DIR/ansible.cfg"
 
 lint:
@@ -37,8 +33,11 @@ syntax_check:
 deploy:
   stage: deploy
   before_script:
-    - apt-get update && apt-get install -y --no-install-recommends openssh-client
+    - python3 -m pip install --user --upgrade pip
+    - python3 -m pip install --user ansible
+    - export PATH="$HOME/.local/bin:$PATH"
     - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
     - |
       if [ -n "$SSH_PRIVATE_KEY_B64" ]; then
         printf "%s" "$SSH_PRIVATE_KEY_B64" | base64 -d > ~/.ssh/id_rsa
@@ -49,7 +48,6 @@ deploy:
         printf "%s" "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
         chmod 644 ~/.ssh/known_hosts
       fi
-    - |
   script:
     - ansible-playbook -i "${ANSIBLE_INVENTORY:-inventories/production/hosts.yml}" site.yml
   rules:
