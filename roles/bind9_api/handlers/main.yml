@@ -1,0 +1,40 @@
+---
+# ============================================================================
+# BIND9 + REST API Role Handlers
+# ============================================================================
+
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Reload apparmor
+  ansible.builtin.command: apparmor_parser -r /etc/apparmor.d/usr.sbin.named
+  changed_when: true
+  failed_when: false
+
+- name: Reset named failed state
+  ansible.builtin.command: systemctl reset-failed named
+  changed_when: false
+  failed_when: false
+  listen: "Restart named"
+
+- name: Reload apparmor for named
+  ansible.builtin.command: apparmor_parser -r /etc/apparmor.d/usr.sbin.named
+  changed_when: false
+  failed_when: false
+  listen: "Restart named"
+
+- name: Restart named service
+  ansible.builtin.systemd:
+    name: named
+    state: restarted
+  listen: "Restart named"
+
+- name: Reload named
+  ansible.builtin.command: rndc reload
+  changed_when: true
+
+- name: Restart bind9-api
+  ansible.builtin.systemd:
+    name: bind9-api
+    state: restarted

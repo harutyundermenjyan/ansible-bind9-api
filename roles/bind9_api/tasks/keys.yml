@@ -1,0 +1,82 @@
+---
+# ============================================================================
+# Key Generation Tasks
+# ============================================================================
+# Generates all required BIND9 keys securely:
+# - RNDC Key (for BIND9 control)
+# - DDNS/TSIG Key (for dynamic DNS updates)
+# Note: API key is generated in main.yml before this task
+
+# ----------------------------------------------------------------------------
+# RNDC Key
+# ----------------------------------------------------------------------------
+- name: Check if rndc key exists
+  ansible.builtin.stat:
+    path: "{{ bind9_config_dir }}/rndc.key"
+  register: rndc_key_stat
+
+- name: Generate rndc key with rndc-confgen
+  ansible.builtin.command: rndc-confgen -a -A hmac-sha256 -k rndc-key -c {{ bind9_config_dir }}/rndc.key
+  args:
+    creates: "{{ bind9_config_dir }}/rndc.key"
+  when: not rndc_key_stat.stat.exists
+
+- name: Ensure rndc key has correct permissions
+  ansible.builtin.file:
+    path: "{{ bind9_config_dir }}/rndc.key"
+    owner: "{{ bind9_user }}"
+    group: "{{ bind9_group }}"
+    mode: "0640"
+
+# ----------------------------------------------------------------------------
+# DDNS/TSIG Key
+# ----------------------------------------------------------------------------
+- name: Ensure keys directory exists
+  ansible.builtin.file:
+    path: "{{ bind9_keys_dir }}"
+    state: directory
+    owner: "{{ bind9_user }}"
+    group: "{{ bind9_group }}"
+    mode: "0750"
+
+- name: Check if DDNS key exists
+  ansible.builtin.stat:
+    path: "{{ bind9_keys_dir }}/ddns-key.key"
+  register: ddns_key_stat
+
+- name: Generate DDNS/TSIG key
+  when: not ddns_key_stat.stat.exists
+  block:
+    - name: Generate TSIG key with tsig-keygen
+      ansible.builtin.command: tsig-keygen -a {{ bind9_tsig_algorithm }} ddns-key
+      register: tsig_key_output
+      changed_when: false
+
+    - name: Write DDNS key file
+      ansible.builtin.copy:
+        content: "{{ tsig_key_output.stdout }}\n"
+        dest: "{{ bind9_keys_dir }}/ddns-key.key"
+        owner: "{{ bind9_user }}"
+        group: "{{ bind9_group }}"
+        mode: "0640"
+
+# ----------------------------------------------------------------------------
+# Store Keys for Later Use
+# ----------------------------------------------------------------------------
+- name: Read rndc key content
+  ansible.builtin.slurp:
+    src: "{{ bind9_config_dir }}/rndc.key"
+  register: rndc_key_content
+
+- name: Read ddns key content
+  ansible.builtin.slurp:
+    src: "{{ bind9_keys_dir }}/ddns-key.key"
+  register: ddns_key_content
+
+- name: Parse rndc key secret
+  ansible.builtin.set_fact:
+    bind9_rndc_secret: "{{ (rndc_key_content.content | b64decode) | regex_search('secret\\s+\"([^\"]+)\"', '\\1') | first }}"
+
+- name: Parse ddns key secret
+  ansible.builtin.set_fact:
+    bind9_ddns_secret: "{{ (ddns_key_content.content | b64decode) | regex_search('secret\\s+\"([^\"]+)\"', '\\1') | first }}"

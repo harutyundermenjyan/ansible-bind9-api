@@ -1,0 +1,63 @@
+---
+# ============================================================================
+# BIND9 + REST API Role - Main Tasks
+# ============================================================================
+
+- name: Include OS-specific variables
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - files:
+        - "{{ ansible_distribution }}-{{ ansible_distribution_version }}.yml"
+        - "{{ ansible_distribution }}.yml"
+        - "{{ ansible_os_family }}.yml"
+      skip: true
+
+# ----------------------------------------------------------------------------
+# Generate API Key First (locally)
+# ----------------------------------------------------------------------------
+- name: Generate API key if not provided
+  when: bind9_api_key is not defined or bind9_api_key == ""
+  block:
+    - name: Generate secure API key
+      ansible.builtin.command: python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+      register: generated_api_key
+      changed_when: false
+      delegate_to: localhost
+      become: false
+
+    - name: Set API key fact
+      ansible.builtin.set_fact:
+        bind9_api_key: "{{ generated_api_key.stdout }}"
+
+- name: Display API key (save this!)
+  ansible.builtin.debug:
+    msg: "API Key: {{ bind9_api_key }}"
+
+# ----------------------------------------------------------------------------
+# BIND9 Installation and Configuration
+# ----------------------------------------------------------------------------
+- name: Install and configure BIND9
+  ansible.builtin.include_tasks: bind9.yml
+  tags: [bind9]
+
+# ----------------------------------------------------------------------------
+# API Installation
+# ----------------------------------------------------------------------------
+- name: Install and configure BIND9 REST API
+  ansible.builtin.include_tasks: api.yml
+  tags: [api]
+
+# ----------------------------------------------------------------------------
+# Firewall Configuration
+# ----------------------------------------------------------------------------
+- name: Configure firewall
+  ansible.builtin.include_tasks: firewall.yml
+  tags: [firewall]
+  when: bind9_configure_firewall | default(true)
+
+# ----------------------------------------------------------------------------
+# Validation
+# ----------------------------------------------------------------------------
+- name: Validate deployment
+  ansible.builtin.include_tasks: validate.yml
+  tags: [validate]

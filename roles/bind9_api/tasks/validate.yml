@@ -1,0 +1,87 @@
+---
+# ============================================================================
+# Deployment Validation Tasks
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Service Status
+# ----------------------------------------------------------------------------
+- name: Verify BIND9 is running
+  ansible.builtin.systemd:
+    name: named
+    state: started
+  register: bind9_status
+
+- name: Verify API is running
+  ansible.builtin.systemd:
+    name: bind9-api
+    state: started
+  register: api_status
+
+# ----------------------------------------------------------------------------
+# BIND9 Configuration Validation
+# ----------------------------------------------------------------------------
+- name: Validate BIND9 configuration
+  ansible.builtin.command: named-checkconf
+  register: checkconf_result
+  changed_when: false
+  failed_when: checkconf_result.rc != 0
+
+# ----------------------------------------------------------------------------
+# API Health Check
+# ----------------------------------------------------------------------------
+- name: Test API health endpoint
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ bind9_api_port }}/health"
+    method: GET
+    headers:
+      X-API-Key: "{{ bind9_api_key }}"
+    return_content: true
+    status_code: 200
+  register: api_health
+  retries: 3
+  delay: 5
+
+- name: Display API health status
+  ansible.builtin.debug:
+    msg: "API Status: {{ api_health.json.status | default('unknown') }}"
+
+# ----------------------------------------------------------------------------
+# RNDC Test
+# ----------------------------------------------------------------------------
+- name: Test rndc connection
+  ansible.builtin.command: rndc status
+  register: rndc_status
+  changed_when: false
+
+- name: Display BIND9 version
+  ansible.builtin.debug:
+    msg: "{{ rndc_status.stdout_lines[0] | default('Unknown') }}"
+
+# ----------------------------------------------------------------------------
+# DNS Resolution Test
+# ----------------------------------------------------------------------------
+- name: Test DNS resolution (localhost)
+  ansible.builtin.command: dig @127.0.0.1 localhost +short
+  register: dns_test
+  changed_when: false
+  failed_when: false
+
+# ----------------------------------------------------------------------------
+# Save Configuration to Local File
+# ----------------------------------------------------------------------------
+- name: Create local credentials directory
+  ansible.builtin.file:
+    path: "{{ playbook_dir }}/credentials"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  become: false
+
+- name: Save server credentials
+  ansible.builtin.template:
+    src: credentials.j2
+    dest: "{{ playbook_dir }}/credentials/{{ inventory_hostname }}.txt"
+    mode: "0600"
+  delegate_to: localhost
+  become: false

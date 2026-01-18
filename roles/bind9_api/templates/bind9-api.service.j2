@@ -1,0 +1,40 @@
+# =============================================================================
+# BIND9 REST API Systemd Service
+# Managed by Ansible - Generated: {{ ansible_date_time.iso8601 }}
+# =============================================================================
+
+[Unit]
+Description=BIND9 REST API
+Documentation=https://github.com/harutyundermenjyan/bind9-api
+After=network.target named.service
+Wants=named.service
+
+[Service]
+Type=simple
+User={{ bind9_api_user }}
+Group={{ bind9_api_group }}
+WorkingDirectory={{ bind9_api_install_dir }}
+EnvironmentFile={{ bind9_api_install_dir }}/.env
+
+ExecStart={{ bind9_api_install_dir }}/venv/bin/uvicorn app.main:app \
+    --host {{ bind9_api_host }} \
+    --port {{ bind9_api_port }} \
+    --workers {{ bind9_api_workers }}
+
+# Restart policy
+Restart=always
+RestartSec=5
+
+# Security hardening
+NoNewPrivileges=false
+ProtectSystem=false
+ProtectHome=true
+PrivateTmp=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=bind9-api
+
+[Install]
+WantedBy=multi-user.target
