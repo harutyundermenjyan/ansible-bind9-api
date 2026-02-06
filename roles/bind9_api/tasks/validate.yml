@@ -66,22 +66,3 @@
   register: dns_test
   changed_when: false
   failed_when: false
-
-# ----------------------------------------------------------------------------
-# Save Configuration to Local File
-# ----------------------------------------------------------------------------
-- name: Create local credentials directory
-  ansible.builtin.file:
-    path: "{{ playbook_dir }}/credentials"
-    state: directory
-    mode: "0700"
-  delegate_to: localhost
-  become: false
-
-- name: Save server credentials
-  ansible.builtin.template:
-    src: credentials.j2
-    dest: "{{ playbook_dir }}/credentials/{{ inventory_hostname }}.txt"
-    mode: "0600"
-  delegate_to: localhost
-  become: false
