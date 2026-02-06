@@ -33,6 +33,7 @@
 - name: Reload named
   ansible.builtin.command: rndc reload
   changed_when: true
+  failed_when: false
 
 - name: Restart bind9-api
   ansible.builtin.systemd:
