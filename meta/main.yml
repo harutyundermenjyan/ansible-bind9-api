@@ -1,0 +1,21 @@
+---
+galaxy_info:
+  role_name: bind9_api
+  author: harutyundermenjyan
+  description: Ansible role for deploying BIND9 DNS server with REST API management
+  license: MIT
+  min_ansible_version: "2.14"
+
+  platforms:
+    - name: Ubuntu
+      versions:
+        - jammy    # 22.04
+        - noble    # 24.04
+
+  galaxy_tags:
+    - dns
+    - bind9
+    - networking
+    - api
+
+dependencies: []

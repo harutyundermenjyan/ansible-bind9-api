@@ -1,203 +1,121 @@
-# BIND9 + REST API Ansible Playbook
+# Ansible Role: bind9_api
 
-Fully automated deployment of BIND9 DNS server with REST API for Terraform/OpenTofu management.
+Ansible role for deploying BIND9 DNS server with REST API management.
 
-## Features
+## Requirements
 
-- ✅ **Automated Installation** - BIND9 + Python API in one command
-- ✅ **Secure Key Generation** - API key, RNDC key, TSIG/DDNS key auto-generated
-- ✅ **Production Ready** - Proper permissions, logging, AppArmor
-- ✅ **Terraform Ready** - Works with [terraform-provider-bind9](https://github.com/harutyundermenjyan/terraform-provider-bind9)
+- Ubuntu 22.04+ (Debian-based)
+- Ansible 2.14+
 
-## Quick Start
+## Installation
 
-### 1. Install Ansible
-
-```bash
-# macOS
-brew install ansible
-
-# Ubuntu/Debian
-sudo apt install ansible
-
-# pip
-pip install ansible
-```
-
-### 2. Configure Inventory
-
-Edit `inventories/production/hosts.yml`:
+### Via requirements.yml (recommended)
 
 ```yaml
-all:
-  children:
-    dns_servers:
-      hosts:
-        dns1:
-          ansible_host: 192.168.1.10    # ← Your DNS server IP
-          ansible_user: ubuntu
+# requirements.yml
+roles:
+  - name: bind9_api
+    src: https://github.com/harutyundermenjyan/ansible-bind9-api.git
+    version: main
+    scm: git
 ```
-
-### 3. Run Playbook
 
 ```bash
-# Test connection
-ansible -i inventories/production/hosts.yml all -m ping
-
-# Deploy
-ansible-playbook -i inventories/production/hosts.yml site.yml
+ansible-galaxy install -r requirements.yml
 ```
 
-### 4. Get Credentials
-
-After deployment, credentials are saved to `credentials/<hostname>.txt`:
+### Manual
 
 ```bash
-cat credentials/dns1.txt
+ansible-galaxy install git+https://github.com/harutyundermenjyan/ansible-bind9-api.git,main
 ```
 
-## Configuration
+## Role Variables
 
-### Default Variables
-
-Override in `inventories/production/hosts.yml` or `group_vars/`:
+### API Configuration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `bind9_api_port` | `8080` | API listen port |
+| `bind9_api_host` | `0.0.0.0` | API listen address |
+| `bind9_api_workers` | `4` | Uvicorn worker count |
+| `bind9_api_log_level` | `INFO` | API log level |
+| `bind9_api_repo` | GitHub URL | Git repository for API source |
+| `bind9_api_version` | `main` | Git branch/tag to deploy |
 | `bind9_api_key` | auto-generated | API authentication key |
+
+### BIND9 Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `bind9_config_dir` | `/etc/bind` | BIND9 config directory |
 | `bind9_zones_dir` | `/var/lib/bind` | Zone files directory |
-| `bind9_allow_new_zones` | `true` | Enable dynamic zone creation |
+| `bind9_allow_new_zones` | `true` | Enable dynamic zone management |
+| `bind9_stats_port` | `8053` | Statistics channel port |
+| `bind9_tsig_algorithm` | `hmac-sha256` | TSIG key algorithm |
+| `bind9_configure_apparmor` | `true` | Configure AppArmor for BIND9 |
 
-### Custom API Key
-
-To use a specific API key instead of auto-generating:
-
-```yaml
-# inventories/production/hosts.yml
-dns1:
-  ansible_host: 192.168.1.10
-  bind9_api_key: "your-secure-key-here"
-```
-
-### Multiple Servers
+### BIND9 Options
 
 ```yaml
-dns_servers:
-  hosts:
-    dns1:
-      ansible_host: 192.168.1.10
-    dns2:
-      ansible_host: 192.168.1.11
-    dns3:
-      ansible_host: 192.168.1.12
+bind9_options:
+  allow_query:
+    - "any"
+  allow_recursion:
+    - "localhost"
+    - "localnets"
+  dnssec_validation: "auto"
+  listen_on:
+    - "any"
 ```
 
-## Directory Structure
+See `defaults/main.yml` for all available variables.
 
-```
-ansible-bind9-api/
-├── site.yml                    # Main playbook
-├── ansible.cfg                 # Ansible configuration
-├── inventories/
-│   └── production/
-│       └── hosts.yml           # Server inventory
-├── group_vars/
-│   └── all.yml                 # Global variables
-├── credentials/                # Generated credentials (gitignored)
-│   └── dns1.txt
-└── roles/
-    └── bind9_api/
-        ├── defaults/main.yml   # Default variables
-        ├── tasks/
-        │   ├── main.yml        # Main task entry
-        │   ├── keys.yml        # Key generation
-        │   ├── bind9.yml       # BIND9 setup
-        │   ├── api.yml         # API setup
-        │   ├── firewall.yml    # Firewall rules
-        │   └── validate.yml    # Validation tests
-        ├── templates/          # Configuration templates
-        └── handlers/main.yml   # Service handlers
+## Usage
+
+```yaml
+# playbook.yml
+- hosts: dns_servers
+  become: true
+  roles:
+    - bind9_api
 ```
 
-## Using with Terraform
+### With custom variables
 
-After deployment, configure your Terraform provider:
-
-```hcl
-terraform {
-  required_providers {
-    bind9 = {
-      source  = "harutyundermenjyan/bind9"
-      version = ">= 1.0.3"
-    }
-  }
-}
-
-provider "bind9" {
-  endpoint = "http://192.168.1.10:8080"  # From credentials file
-  api_key  = "YOUR_API_KEY"              # From credentials file
-}
+```yaml
+- hosts: dns_servers
+  become: true
+  roles:
+    - role: bind9_api
+      vars:
+        bind9_api_port: 9090
+        bind9_options:
+          allow_query:
+            - "10.0.0.0/8"
+          allow_recursion:
+            - "localhost"
 ```
 
-## GitLab CI (Manual Deploy)
+## What Gets Deployed
 
-This repo includes a production-ready GitLab CI pipeline with a **manual** deploy job.
+- **BIND9** DNS server with dynamic zone support
+- **BIND9 REST API** (Python/FastAPI) for programmatic DNS management
+- **AppArmor** configuration for BIND9
+- **UFW** firewall rules (DNS + API ports)
+- **RNDC** and **TSIG** keys for secure management
+- **Systemd** service for the API
 
-### Required CI/CD variables
+## After Deployment
 
-Create these variables in **GitLab → Settings → CI/CD → Variables**:
+- **API Endpoint**: `http://<server-ip>:<bind9_api_port>`
+- **API Docs**: `http://<server-ip>:<bind9_api_port>/docs`
+- **Credentials**: `/opt/bind9-api/.env` on the server
 
-- `SSH_PRIVATE_KEY` (masked, protected)  
-  Private key with access to your DNS servers.
-- `SSH_KNOWN_HOSTS` (optional, masked)  
-  Output of `ssh-keyscan -H <server_ip>` for your hosts.
+## Related Projects
 
-The deploy job runs:
-
-```bash
-ansible-playbook -i inventories/production/hosts.yml site.yml
-```
-
-If your inventory is different for CI, set it in `inventories/production/hosts.yml`
-or override it with a project variable and pass it via `ANSIBLE_INVENTORY`.
-
-## Security Notes
-
-1. **API Key** - Generated securely using `secrets.token_urlsafe(32)`
-2. **TSIG Keys** - Generated with `tsig-keygen` using HMAC-SHA256
-3. **File Permissions** - Sensitive files are mode 0600/0640
-4. **Credentials** - Saved locally, not on server, gitignored
-
-## Troubleshooting
-
-### Check Service Status
-
-```bash
-# On server
-sudo systemctl status named
-sudo systemctl status bind9-api
-```
-
-### View Logs
-
-```bash
-# BIND9 logs
-sudo journalctl -u named -f
-
-# API logs
-sudo journalctl -u bind9-api -f
-```
-
-### Validate Configuration
-
-```bash
-# BIND9 config
-sudo named-checkconf
-
-# Test API
-curl -H "X-API-Key: YOUR_KEY" http://YOUR_SERVER:8080/health
-```
+- [bind9-api](https://github.com/harutyundermenjyan/bind9-api) - REST API source
+- [terraform-provider-bind9](https://github.com/harutyundermenjyan/terraform-provider-bind9) - Terraform provider
 
 ## License
 

@@ -24,13 +24,20 @@
   changed_when: false
   failed_when: false
 
-- name: Clone BIND9 REST API repository
+- name: Clone/Update BIND9 REST API repository
   ansible.builtin.git:
     repo: "{{ bind9_api_repo }}"
     dest: "{{ bind9_api_install_dir }}"
     version: "{{ bind9_api_version }}"
     force: true
+    update: true
+  register: git_result
   notify: Restart bind9-api
+
+- name: Show git update result
+  ansible.builtin.debug:
+    msg: "Git changed: {{ git_result.changed }}, before: {{ git_result.before | default('none') }}, after: {{ git_result.after | default('none') }}"
+  when: git_result is defined
 
 - name: Set API directory ownership
   ansible.builtin.file:

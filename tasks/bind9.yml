@@ -120,6 +120,23 @@
       changed_when: true
 
 # ----------------------------------------------------------------------------
+# Sudoers Configuration for API Service
+# ----------------------------------------------------------------------------
+- name: Configure sudoers for bind9-api NZD cleanup
+  ansible.builtin.copy:
+    content: |
+      # Allow bind9-api (running as {{ bind9_api_user }}) to manage named service for NZD cleanup
+      {{ bind9_api_user }} ALL=(ALL) NOPASSWD: /bin/systemctl stop named
+      {{ bind9_api_user }} ALL=(ALL) NOPASSWD: /bin/systemctl start named
+      {{ bind9_api_user }} ALL=(ALL) NOPASSWD: /bin/systemctl restart named
+      {{ bind9_api_user }} ALL=(ALL) NOPASSWD: /bin/systemctl reload named
+    dest: /etc/sudoers.d/bind9-api
+    owner: root
+    group: root
+    mode: "0440"
+    validate: "visudo -cf %s"
+
+# ----------------------------------------------------------------------------
 # Service Management
 # ----------------------------------------------------------------------------
 - name: Reset any failed state for named

@@ -1,10 +1,12 @@
-credentials/
 *.retry
-.ansible/
-.env
+*.pyc
+__pycache__/
 .venv/
+venv/
+.env
 *.pem
 *.key
 *.crt
 *.vault
 vault_pass.txt
+.DS_Store
