@@ -45,7 +45,12 @@
     owner: "{{ bind9_user }}"
     group: "{{ bind9_group }}"
     mode: "0755"
-    recurse: true
+
+- name: Fix log file permissions
+  ansible.builtin.shell: |
+    find {{ bind9_log_dir }} -type f -exec chown {{ bind9_user }}:{{ bind9_group }} {} \;
+    find {{ bind9_log_dir }} -type f -exec chmod 0644 {} \;
+  changed_when: true
 
 # ----------------------------------------------------------------------------
 # Key Generation (after BIND9 packages installed)
@@ -139,6 +144,12 @@
 # ----------------------------------------------------------------------------
 # Service Management
 # ----------------------------------------------------------------------------
+- name: Clean stale NZD files (prevent ACL reference errors)
+  ansible.builtin.shell: |
+    rm -f {{ bind9_cache_dir }}/*.nzd {{ bind9_cache_dir }}/*.nzf {{ bind9_cache_dir }}/*.nzd-lock
+    rm -f {{ bind9_zones_dir }}/*.nzd {{ bind9_zones_dir }}/*.nzf {{ bind9_zones_dir }}/*.nzd-lock
+  changed_when: true
+
 - name: Reset any failed state for named
   ansible.builtin.command: systemctl reset-failed named
   changed_when: false
