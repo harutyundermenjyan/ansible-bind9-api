@@ -37,21 +37,21 @@
     - { path: "{{ bind9_keys_dir }}", mode: "0750" }
     - { path: "{{ bind9_config_dir }}", mode: "0775" }
 
-# Ensure log directory is writable by bind user
-- name: Set log directory ownership
+# Ensure log directory is writable by bind user (0775 needed for log rolling)
+- name: Set log directory ownership and permissions
   ansible.builtin.file:
     path: "{{ bind9_log_dir }}"
     state: directory
     owner: "{{ bind9_user }}"
     group: "{{ bind9_group }}"
-    mode: "0755"
+    mode: "0775"
+    recurse: false
 
-- name: Fix log directory and file permissions
+- name: Fix existing log file permissions
   ansible.builtin.shell: |
-    chown -R {{ bind9_user }}:{{ bind9_group }} {{ bind9_log_dir }}
-    chmod 0775 {{ bind9_log_dir }}
-    find {{ bind9_log_dir }} -type f -exec chmod 0644 {} \; 2>/dev/null || true
-  changed_when: true
+    find {{ bind9_log_dir }} -type f ! -perm 0644 -exec chmod 0644 {} \; 2>/dev/null || true
+  register: log_perms_result
+  changed_when: log_perms_result.stdout | length > 0
 
 # ----------------------------------------------------------------------------
 # Key Generation (after BIND9 packages installed)
