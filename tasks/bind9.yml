@@ -69,7 +69,6 @@
     owner: root
     group: "{{ bind9_group }}"
     mode: "0644"
-  register: named_conf_result
   notify: Restart named
 
 - name: Deploy named.conf.options
@@ -79,7 +78,6 @@
     owner: root
     group: "{{ bind9_group }}"
     mode: "0644"
-  register: named_options_result
   notify: Restart named
 
 - name: Deploy named.conf.local
@@ -89,22 +87,17 @@
     owner: root
     group: "{{ bind9_group }}"
     mode: "0644"
-  register: named_local_result
   notify: Restart named
 
-- name: Deploy named.conf.acls (empty, managed by API)
+- name: Deploy named.conf.acls (only if not exists, managed by API/Terraform)
   ansible.builtin.template:
     src: named.conf.acls.j2
     dest: "{{ bind9_config_dir }}/named.conf.acls"
     owner: "{{ bind9_user }}"
     group: "{{ bind9_group }}"
     mode: "0640"
-    force: true
+    force: false
   notify: Reload named
-
-- name: Set bind9 config changed fact
-  ansible.builtin.set_fact:
-    bind9_config_changed: "{{ named_conf_result.changed or named_options_result.changed or named_local_result.changed }}"
 
 # ----------------------------------------------------------------------------
 # AppArmor Configuration (Ubuntu)
@@ -152,27 +145,6 @@
 # ----------------------------------------------------------------------------
 # Service Management
 # ----------------------------------------------------------------------------
-- name: Check for stale NZD files
-  ansible.builtin.find:
-    paths:
-      - "{{ bind9_cache_dir }}"
-      - "{{ bind9_zones_dir }}"
-    patterns:
-      - "*.nzd"
-      - "*.nzf"
-      - "*.nzd-lock"
-  register: nzd_files
-  when: bind9_config_changed | default(false)
-
-- name: Clean stale NZD files (only on config change to prevent ACL errors)
-  ansible.builtin.file:
-    path: "{{ item.path }}"
-    state: absent
-  loop: "{{ nzd_files.files | default([]) }}"
-  when:
-    - bind9_config_changed | default(false)
-    - nzd_files.matched | default(0) > 0
-
 - name: Reset any failed state for named
   ansible.builtin.command: systemctl reset-failed named
   changed_when: false
