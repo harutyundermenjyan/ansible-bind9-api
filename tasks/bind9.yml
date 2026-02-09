@@ -31,20 +31,20 @@
     group: "{{ item.group | default(bind9_group) }}"
     mode: "{{ item.mode | default('0755') }}"
   loop:
-    - { path: "{{ bind9_zones_dir }}", mode: "0775" }
-    - { path: "{{ bind9_cache_dir }}", mode: "0755" }
-    - { path: "{{ bind9_log_dir }}", mode: "0755", owner: "{{ bind9_user }}", group: "{{ bind9_group }}" }
+    - { path: "{{ bind9_zones_dir }}", mode: "0770" }
+    - { path: "{{ bind9_cache_dir }}", mode: "0750" }
+    - { path: "{{ bind9_log_dir }}", mode: "0770", owner: "{{ bind9_user }}", group: "{{ bind9_group }}" }
     - { path: "{{ bind9_keys_dir }}", mode: "0750" }
-    - { path: "{{ bind9_config_dir }}", mode: "0775" }
+    - { path: "{{ bind9_config_dir }}", mode: "0750" }
 
-# Ensure log directory is writable by bind user (0775 needed for log rolling)
+# Ensure log directory is writable by bind user (0770 - no world access)
 - name: Set log directory ownership and permissions
   ansible.builtin.file:
     path: "{{ bind9_log_dir }}"
     state: directory
     owner: "{{ bind9_user }}"
     group: "{{ bind9_group }}"
-    mode: "0775"
+    mode: "0770"
     recurse: false
 
 - name: Fix existing log file permissions
@@ -95,7 +95,7 @@
     dest: "{{ bind9_config_dir }}/named.conf.acls"
     owner: "{{ bind9_user }}"
     group: "{{ bind9_group }}"
-    mode: "0664"
+    mode: "0640"
     force: true
   notify: Reload named
 
@@ -145,11 +145,23 @@
 # ----------------------------------------------------------------------------
 # Service Management
 # ----------------------------------------------------------------------------
-- name: Clean stale NZD files (prevent ACL reference errors)
-  ansible.builtin.shell: |
-    rm -f {{ bind9_cache_dir }}/*.nzd {{ bind9_cache_dir }}/*.nzf {{ bind9_cache_dir }}/*.nzd-lock
-    rm -f {{ bind9_zones_dir }}/*.nzd {{ bind9_zones_dir }}/*.nzf {{ bind9_zones_dir }}/*.nzd-lock
-  changed_when: true
+- name: Check for stale NZD files
+  ansible.builtin.find:
+    paths:
+      - "{{ bind9_cache_dir }}"
+      - "{{ bind9_zones_dir }}"
+    patterns:
+      - "*.nzd"
+      - "*.nzf"
+      - "*.nzd-lock"
+  register: nzd_files
+
+- name: Clean stale NZD files (prevent ACL reference errors on fresh deploy)
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ nzd_files.files }}"
+  when: nzd_files.matched > 0
 
 - name: Reset any failed state for named
   ansible.builtin.command: systemctl reset-failed named
