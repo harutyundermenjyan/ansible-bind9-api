@@ -69,6 +69,7 @@
     owner: root
     group: "{{ bind9_group }}"
     mode: "0644"
+  register: named_conf_result
   notify: Restart named
 
 - name: Deploy named.conf.options
@@ -78,6 +79,7 @@
     owner: root
     group: "{{ bind9_group }}"
     mode: "0644"
+  register: named_options_result
   notify: Restart named
 
 - name: Deploy named.conf.local
@@ -87,6 +89,7 @@
     owner: root
     group: "{{ bind9_group }}"
     mode: "0644"
+  register: named_local_result
   notify: Restart named
 
 - name: Deploy named.conf.acls (empty, managed by API)
@@ -98,6 +101,10 @@
     mode: "0640"
     force: true
   notify: Reload named
+
+- name: Set bind9 config changed fact
+  ansible.builtin.set_fact:
+    bind9_config_changed: "{{ named_conf_result.changed or named_options_result.changed or named_local_result.changed }}"
 
 # ----------------------------------------------------------------------------
 # AppArmor Configuration (Ubuntu)
@@ -155,13 +162,16 @@
       - "*.nzf"
       - "*.nzd-lock"
   register: nzd_files
+  when: bind9_config_changed | default(false)
 
-- name: Clean stale NZD files (prevent ACL reference errors on fresh deploy)
+- name: Clean stale NZD files (only on config change to prevent ACL errors)
   ansible.builtin.file:
     path: "{{ item.path }}"
     state: absent
-  loop: "{{ nzd_files.files }}"
-  when: nzd_files.matched > 0
+  loop: "{{ nzd_files.files | default([]) }}"
+  when:
+    - bind9_config_changed | default(false)
+    - nzd_files.matched | default(0) > 0
 
 - name: Reset any failed state for named
   ansible.builtin.command: systemctl reset-failed named
