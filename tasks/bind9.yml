@@ -46,11 +46,11 @@
     group: "{{ bind9_group }}"
     mode: "0755"
 
-- name: Fix log file permissions and remove stale logs
+- name: Fix log directory and file permissions
   ansible.builtin.shell: |
     chown -R {{ bind9_user }}:{{ bind9_group }} {{ bind9_log_dir }}
     chmod 0775 {{ bind9_log_dir }}
-    find {{ bind9_log_dir }} -type f -delete 2>/dev/null || true
+    find {{ bind9_log_dir }} -type f -exec chmod 0644 {} \; 2>/dev/null || true
   changed_when: true
 
 # ----------------------------------------------------------------------------
