@@ -2,6 +2,8 @@
 
 Ansible role for deploying BIND9 DNS server with REST API management.
 
+📖 **Blog Post:** [Automating BIND9 DNS Management: From Manual Configs to Infrastructure as Code](https://medium.com/dev-genius/automating-bind9-dns-management-from-manual-configs-to-infrastructure-as-code-84292214b5a5)
+
 ## Requirements
 
 - Ubuntu 22.04+ (Debian-based)
